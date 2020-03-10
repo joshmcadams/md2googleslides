@@ -32,10 +32,16 @@ interface ImageSize {
     height: number;
 }
 
+const sleep = (milliseconds) => {
+    return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
 async function probeUrl(url): Promise<ImageSize> {
     return await retry(async doRetry => {
         try {
-            return await probeImageSize(url, probeOptions);
+            let imageSize = await probeImageSize(url, probeOptions);
+            await sleep(1000);
+            return imageSize;
         } catch (err) {
             if (retriableCodes.includes(err.code)) {
                 doRetry(err);
@@ -49,6 +55,7 @@ async function probeFile(path): Promise<ImageSize> {
     let stream = fs.createReadStream(path);
     try {
         return await probeImageSize(stream);
+        await sleep(1000);
     } finally {
         stream.destroy();
     }

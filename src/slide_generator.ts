@@ -25,6 +25,10 @@ import maybeGenerateImage from './images/generate';
 
 const debug = Debug('md2gslides');
 
+const sleep = (milliseconds) => {
+    return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
 /**
  * Generates slides from Markdown or HTML. Requires an authorized
  * oauth2 client.
@@ -66,6 +70,7 @@ export default class SlideGenerator {
      * @returns {Promise.<SlideGenerator>}
      */
     public static async newPresentation(oauth2Client: OAuth2Client, title: string): Promise<SlideGenerator> {
+        console.log('newPresentation');
         let api = google.slides({ version: 'v1', auth: oauth2Client });
         let res = await api.presentations.create({
             requestBody: {
@@ -73,6 +78,7 @@ export default class SlideGenerator {
             },
         });
         let presentation = res.data;
+        await sleep(1000);
         return new SlideGenerator(api, presentation);
     }
 
@@ -89,6 +95,7 @@ export default class SlideGenerator {
         title: string,
         presentationId: string,
     ): Promise<SlideGenerator> {
+        console.log('copyPresentation');
         let drive = google.drive({ version: 'v3', auth: oauth2Client });
         let res = await drive.files.copy({
             fileId: presentationId,
@@ -96,6 +103,7 @@ export default class SlideGenerator {
                 name: title,
             },
         });
+        await sleep(1000);
         return SlideGenerator.forPresentation(oauth2Client, res.data.id);
     }
 
@@ -107,9 +115,11 @@ export default class SlideGenerator {
      * @returns {Promise.<SlideGenerator>}
      */
     public static async forPresentation(oauth2Client: OAuth2Client, presentationId): Promise<SlideGenerator> {
+        console.log('forPresentation');
         let api = google.slides({ version: 'v1', auth: oauth2Client });
         let res = await api.presentations.get({ presentationId: presentationId });
         let presentation = res.data;
+        await sleep(1000);
         return new SlideGenerator(api, presentation);
     }
 
@@ -120,6 +130,7 @@ export default class SlideGenerator {
      * @returns {Promise.<String>} ID of generated slide
      */
     public async generateFromMarkdown(markdown, { css, useFileio }): Promise<string> {
+        console.log('generateFromMarkdown');
         this.slides = extractSlides(markdown, css);
         this.allowUpload = useFileio;
         await this.generateImages();
@@ -137,6 +148,7 @@ export default class SlideGenerator {
      * @returns {Promise.<*>}
      */
     public async erase(): Promise<void> {
+        console.log('erase');
         debug('Erasing previous slides');
         if (this.presentation.slides == null) {
             return Promise.resolve(null);
@@ -152,9 +164,11 @@ export default class SlideGenerator {
             presentationId: this.presentation.presentationId,
             requestBody: batch,
         });
+        await sleep(1000);
     }
 
     protected async processImages<T>(fn: (img: ImageDefinition) => Promise<T>): Promise<void> {
+        console.log('processImages');
         const promises = [];
         for (let slide of this.slides) {
             if (slide.backgroundImage) {
@@ -163,17 +177,20 @@ export default class SlideGenerator {
             for (let body of slide.bodies) {
                 for (let image of body.images) {
                     promises.push(fn(image));
+                    await sleep(1000);
                 }
             }
         }
         await Promise.all(promises);
     }
     protected async generateImages(): Promise<void> {
+        console.log('generateImages');
         return this.processImages(maybeGenerateImage);
     }
 
     protected async uploadLocalImages(): Promise<void> {
         const uploadImageifLocal = async (image): Promise<void> => {
+            console.log('updateImageifLocal');
             let parsedUrl = new URL(image.url);
             if (parsedUrl.protocol !== 'file:') {
                 return;
@@ -182,6 +199,7 @@ export default class SlideGenerator {
                 return Promise.reject('Local images require --use-fileio option');
             }
             image.url = await uploadLocalImage(parsedUrl.pathname);
+            await sleep(1000);
         };
         return this.processImages(uploadImageifLocal);
     }
@@ -196,6 +214,7 @@ export default class SlideGenerator {
      * @private
      */
     protected async probeImageSizes(): Promise<void> {
+        console.log('probeImageSizes');
         return this.processImages(probeImage);
     }
 
@@ -246,6 +265,7 @@ export default class SlideGenerator {
      * @returns {Promise.<*>}
      */
     protected async updatePresentation(batch): Promise<void> {
+        console.log('updatePresentation');
         debug('Updating presentation: %O', batch);
         if (batch.requests.length == 0) {
             return Promise.resolve(null);
@@ -255,6 +275,7 @@ export default class SlideGenerator {
             requestBody: batch,
         });
         debug('API response: %O', res.data);
+        await sleep(1000);
     }
 
     /**
@@ -263,9 +284,11 @@ export default class SlideGenerator {
      * @returns {Promise.<*>}
      */
     protected async reloadPresentation(): Promise<void> {
+        console.log('reloadPresentation');
         let res = await this.api.presentations.get({
             presentationId: this.presentation.presentationId,
         });
         this.presentation = res.data;
+        await sleep(1000);
     }
 }
